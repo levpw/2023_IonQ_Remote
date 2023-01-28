@@ -1,6 +1,7 @@
 import cirq
 import qiskit
 import numpy as np
+from qiskit.circuit.library import RYGate
 
 def x_gate_generation(n_qubits):
     x_gate_seq = []
@@ -18,14 +19,10 @@ def encode_cirq(image):
     pass
 
 def encode_qiskit(image, n_qubits):
-    from qiskit.circuit.library import RYGate
 
-    # second last is color_encoding qubit
-    # last is color_scale_qubit
+    # last is color_encoding qubit
 
     q = qiskit.QuantumRegister(n_qubits+1)
-    # c = qiskit.ClassicalRegister(n_qubits)
-    # qc = qiskit.QuantumCircuit(q,c)
     qc = qiskit.QuantumCircuit(q)
 
     # linear scaling
@@ -58,7 +55,6 @@ def decode(histogram):
     '''
 
 def encode_qiskit_abandoned(image, n_qubits):
-    from qiskit.circuit.library import RYGate
 
     # second last is color_encoding qubit
     # last is color_scale_qubit
