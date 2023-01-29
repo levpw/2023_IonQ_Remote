@@ -3,6 +3,7 @@
 import qiskit
 import numpy as np
 from qiskit.circuit.library import RYGate
+from qiskit.compiler import transpile
 import cv2
 
 def x_gate_generation(n_qubits):
@@ -22,7 +23,6 @@ def encode(image):
     image = cv2.resize(image, (8,8))
 
     img_data = image.flatten()
-    print(img_data)
 
     # calculated qubits needed for image size
     # n_qubits = np.ceil(2*np.log2(len(image))).astype(int)
@@ -33,7 +33,8 @@ def encode(image):
 
     # linear scaling
     # theta_pixels = img_data*np.pi/255
-    theta_pixels = img_data
+    # theta_pixels = img_data*np.pi/np.max(img_data)
+    theta_pixels = img_data*255
 
     for idx in range(n_qubits):
         qc.h(idx)
@@ -48,12 +49,14 @@ def encode(image):
         for j in range(x_gates):
             qc.x(j)
 
-    return qc
+    circuit = transpile(qc, basis_gates=['h', 'x', 'cx', 'cry', 'ry'])
+
+    return circuit
 
 def decode(histogram):
 
-    # compressed to 11x11
-    data_len = 121
+    # compressed to 8x8
+    data_len = 64
     recovered_image_cos = np.zeros(data_len)
     recovered_image_sin = np.zeros(data_len)
 
@@ -66,9 +69,10 @@ def decode(histogram):
             recovered_image_sin[idx] = histogram[key]
 
     prob = recovered_image_sin/(recovered_image_sin+recovered_image_cos)
-    re_image = (np.sqrt(prob)*510/np.pi).astype(int).reshape(28,28)
+    #re_image = (np.sqrt(prob)*510/np.pi).reshape(8,8)
+    re_image = (np.sqrt(prob)*np.pi/255).reshape(8,8)
 
-    return re_image
+    return cv2.resize(re_image, (28,28))
 
 def run_part1(image):
     #encode image into a circuit
