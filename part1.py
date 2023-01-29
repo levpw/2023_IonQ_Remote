@@ -1,7 +1,9 @@
-import cirq
+#submission to part 1, you should make this into a .py file
+
 import qiskit
 import numpy as np
 from qiskit.circuit.library import RYGate
+import cv2
 
 def x_gate_generation(n_qubits):
     x_gate_seq = []
@@ -12,28 +14,33 @@ def x_gate_generation(n_qubits):
 
     return x_gate_seq+[0]
 
-def color_conversion(prob):
-    pass
-
-def encode_cirq(image):
-    pass
-
-def encode_qiskit(image, n_qubits):
-
+# Functions 'encode' and 'decode' are dummy.
+def encode(image):
     # last is color_encoding qubit
+
+    # downsample 28 -> 8
+    image = cv2.resize(image, (8,8))
+
+    img_data = image.flatten()
+    print(img_data)
+
+    # calculated qubits needed for image size
+    # n_qubits = np.ceil(2*np.log2(len(image))).astype(int)
+    n_qubits = 6
 
     q = qiskit.QuantumRegister(n_qubits+1)
     qc = qiskit.QuantumCircuit(q)
 
     # linear scaling
-    theta_pixels = image*np.pi/255
+    # theta_pixels = img_data*np.pi/255
+    theta_pixels = img_data
 
     for idx in range(n_qubits):
         qc.h(idx)
 
-    x_gate_seq = x_gate_generation(n_qubits=n_qubits)
+    x_gate_seq = x_gate_generation(n_qubits)
     
-    for i in range(len(image)):
+    for i in range(len(img_data)):
         pixel = theta_pixels[i]
         frqi_ry = RYGate(pixel).control(n_qubits)
         qc.append(frqi_ry, range(n_qubits+1))
@@ -44,48 +51,33 @@ def encode_qiskit(image, n_qubits):
     return qc
 
 def decode(histogram):
-    pass
 
-    '''
-    if 1 in histogram.keys():
-        image=[[0,0],[0,0]]
-    else:
-        image=[[1,1],[1,1]]
-    return image
-    '''
+    # compressed to 11x11
+    data_len = 121
+    recovered_image_cos = np.zeros(data_len)
+    recovered_image_sin = np.zeros(data_len)
 
-def encode_qiskit_abandoned(image, n_qubits):
+    for key in histogram:
+        idx_bin = key[1:]
+        idx = int(idx_bin,2)
+        if key[0] == '0':
+            recovered_image_cos[idx] = histogram[key]
+        else:
+            recovered_image_sin[idx] = histogram[key]
 
-    # second last is color_encoding qubit
-    # last is color_scale_qubit
+    prob = recovered_image_sin/(recovered_image_sin+recovered_image_cos)
+    re_image = (np.sqrt(prob)*510/np.pi).astype(int).reshape(28,28)
 
-    q = qiskit.QuantumRegister(n_qubits+2)
-    qc = qiskit.QuantumCircuit(q)
+    return re_image
 
-    # scale
-    scale_factor = np.sum(image)
-    scale_theta = np.arctan(scale_factor)
+def run_part1(image):
+    #encode image into a circuit
+    circuit=encode(image)
 
-    # normalize
-    normalized_pixels = image/scale_factor
+    #simulate circuit
+    histogram=simulate(circuit)
 
-    # linear scaling
-    theta_pixels = image*np.pi/255
+    #reconstruct the image
+    image_re=decode(histogram)
 
-    # encode scale_theta in last qubit
-    qc.u(scale_theta,0,0,n_qubits+1)
-
-    for idx in range(n_qubits):
-        qc.h(idx)
-
-    x_gate_seq = x_gate_generation(n_qubits=n_qubits)
-    
-    for i in range(len(image)):
-        pixel = theta_pixels[i]
-        frqi_ry = RYGate(pixel).control(n_qubits)
-        qc.append(frqi_ry, range(n_qubits+1))
-        x_gates = x_gate_seq[i]
-        for j in range(x_gates):
-            qc.x(j)
-
-    return qc
+    return circuit,image_re
