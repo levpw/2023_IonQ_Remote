@@ -1,10 +1,30 @@
 #submission to part 1, you should make this into a .py file
 
 import qiskit
+from qiskit.execute_function import execute
+from qiskit import BasicAer
 import numpy as np
+from typing import Dict, List
 from qiskit.circuit.library import RYGate
 from qiskit.compiler import transpile
 import cv2
+
+#define utility functions
+
+def simulate(circuit: qiskit.QuantumCircuit) -> dict:
+    """Simulate the circuit, give the state vector as the result."""
+    backend = BasicAer.get_backend('statevector_simulator')
+    job = execute(circuit, backend)
+    result = job.result()
+    state_vector = result.get_statevector()
+    
+    histogram = dict()
+    for i in range(len(state_vector)):
+        population = abs(state_vector[i]) ** 2
+        if population > 1e-9:
+            histogram[i] = population
+    
+    return histogram
 
 def x_gate_generation(n_qubits):
     x_gate_seq = []
