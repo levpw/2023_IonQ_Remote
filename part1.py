@@ -49,9 +49,10 @@ def encode(image):
         for j in range(x_gates):
             qc.x(j)
 
-    circuit = transpile(qc, basis_gates=['h', 'x', 'cx', 'cry', 'ry'])
+    qc = qc.decompose()
+    qc = transpile(qc, routing_method = 'sabre')
 
-    return circuit
+    return qc
 
 def decode(histogram):
 
