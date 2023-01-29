@@ -1,8 +1,8 @@
 #submission to part 1, you should make this into a .py file
 
 import qiskit
-from qiskit.execute_function import execute
-from qiskit import BasicAer
+from qiskit import transpile
+from qiskit.providers.aer import QasmSimulator
 import numpy as np
 from typing import Dict, List
 from qiskit.circuit.library import RYGate
@@ -11,18 +11,17 @@ import cv2
 
 #define utility functions
 
-def simulate(circuit: qiskit.QuantumCircuit) -> dict:
-    """Simulate the circuit, give the state vector as the result."""
-    backend = BasicAer.get_backend('statevector_simulator')
-    job = execute(circuit, backend)
-    result = job.result()
-    state_vector = result.get_statevector()
+def my_simulate(circuit) -> dict:
+    """Official simulate is not compatible with our FRQI encoder implementation"""
+    circuit.measure_all()
+    simulator = QasmSimulator()
+
+    compiled_circuit = transpile(circuit, simulator)
+    job = simulator.run(compiled_circuit, shots=65535)
     
-    histogram = dict()
-    for i in range(len(state_vector)):
-        population = abs(state_vector[i]) ** 2
-        if population > 1e-9:
-            histogram[i] = population
+    result = job.result()
+    
+    histogram = result.get_counts(compiled_circuit)
     
     return histogram
 
@@ -40,7 +39,7 @@ def encode(image):
     # last is color_encoding qubit
 
     # downsample 28 -> 8
-    image = cv2.resize(image, (8,8))
+    image = cv2.resize(image, (8,8), interpolation=cv2.INTER_AREA)
 
     img_data = image.flatten()
 
@@ -53,8 +52,8 @@ def encode(image):
 
     # linear scaling
     # theta_pixels = img_data*np.pi/255
-    # theta_pixels = img_data*np.pi/np.max(img_data)
-    theta_pixels = img_data*255
+    theta_pixels = img_data*np.pi/0.00392156862745098
+    #theta_pixels = img_data*255
 
     for idx in range(n_qubits):
         qc.h(idx)
@@ -75,7 +74,6 @@ def encode(image):
     return qc
 
 def decode(histogram):
-
     # compressed to 8x8
     data_len = 64
     recovered_image_cos = np.zeros(data_len)
@@ -90,17 +88,17 @@ def decode(histogram):
             recovered_image_sin[idx] = histogram[key]
 
     prob = recovered_image_sin/(recovered_image_sin+recovered_image_cos)
-    #re_image = (np.sqrt(prob)*510/np.pi).reshape(8,8)
-    re_image = (np.sqrt(prob)*np.pi/255).reshape(8,8)
+    re_image = prob.reshape(8,8)
+    re_image = cv2.resize(re_image, (28,28), interpolation=cv2.INTER_LINEAR)*0.00392156862745098/np.max(prob)
 
-    return cv2.resize(re_image, (28,28))
+    return re_image
 
 def run_part1(image):
     #encode image into a circuit
     circuit=encode(image)
 
     #simulate circuit
-    histogram=simulate(circuit)
+    histogram=my_simulate(circuit)
 
     #reconstruct the image
     image_re=decode(histogram)
